@@ -81,18 +81,19 @@ Planned test order: `DebounceBuffer` → `ContactGraph` → `TriageEngine` → `
 | Issue #2: InboxPoller | ✅ Complete (Parser Boundary) |
 | Issue #3: ActivityFeed | ✅ Complete (Undo/Reclassify added) |
 | Issue #4: AgentLoop | ✅ Complete (Tracer bullet wired) |
+| Issue #6A: TriageEngine Heuristics | ✅ Complete (Expanded mailing list & system notification detection) |
 | GitHub Sync | ✅ Code pushed to GitHub (policy: always push after major dev chunks) |
 
 ---
 
 ## Next Best Plan
 
-Now that the `AgentLoop` can correctly ingest from `InboxPoller`, pass through the asynchronous `DebounceBuffer`, run through the `TriageEngine` and emit to the `ActivityFeed`, we have a fully functional "Observe" mode prototype pipeline. We have also committed and pushed these changes to the remote repository.
+Now that the `TriageEngine` has robust heuristics for automated emails, we need to add "priors" so it can understand the relative urgency of known domains.
 
 **Development Policy**: Always push code to the repository using `gh` or `git` after completing a major chunk of development.
 
 The next steps follow the PRD execution path:
 
-1. **Grab Issue #6A: TriageEngine Heuristics**: The `TriageEngine` currently has very basic heuristics. We need to implement robust structural heuristics (identifying mailing lists beyond `List-Unsubscribe`, no-reply domains, internal vs external).
-2. **Grab Issue #6B: TriageEngine Priors**: Add pretrained priors (e.g., domain-based urgency for things like GitHub, Stripe, investors vs marketing).
-3. **Grab Issue #7: ContactGraph Decay**: Implement the actual temporal decay logic (e.g., calculating the $\lambda$ function on reads) to ensure stale relationships drop in importance.
+1. **Grab Issue #6B: TriageEngine Priors**: Add pretrained priors (e.g., domain-based urgency for things like GitHub, Stripe, investors vs marketing).
+2. **Grab Issue #7: ContactGraph Decay**: Implement the actual temporal decay logic (e.g., calculating the $\lambda$ function on reads) to ensure stale relationships drop in importance.
+3. **Grab Issue #8: TriageEngine Graph Integration**: Combine the ContactGraph scores and the TriageEngine heuristics into a final decision matrix.

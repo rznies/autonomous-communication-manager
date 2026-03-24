@@ -98,3 +98,55 @@ async def test_triage_engine_learns_from_correction():
     
     decision2 = await engine.triage(event, contact=None)
     assert decision2.decision_class == TriageDecisionClass.ARCHIVE
+
+@pytest.mark.asyncio
+async def test_triage_engine_detects_noreply_domain():
+    engine = TriageEngine()
+    
+    event = IncomingEvent(
+        id="msg_noreply",
+        contact_id="no-reply@company.com",
+        content="System update",
+        timestamp=0.0,
+        headers={"source": "gmail"}
+    )
+    
+    decision = await engine.triage(event, contact=None)
+    
+    assert decision.decision_class in [TriageDecisionClass.ARCHIVE, TriageDecisionClass.LOW]
+    assert "no-reply" in decision.reason.lower() or "automated" in decision.reason.lower()
+
+@pytest.mark.asyncio
+async def test_triage_engine_detects_bulk_precedence():
+    engine = TriageEngine()
+    
+    event = IncomingEvent(
+        id="msg_bulk",
+        contact_id="marketing@startup.com",
+        content="Buy now",
+        timestamp=0.0,
+        headers={"Precedence": "bulk"}
+    )
+    
+    decision = await engine.triage(event, contact=None)
+    
+    assert decision.decision_class in [TriageDecisionClass.ARCHIVE, TriageDecisionClass.LOW]
+    assert "bulk" in decision.reason.lower() or "list" in decision.reason.lower()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("domain_prefix", ["notifications@", "alerts@", "updates@", "mailer-daemon@", "postmaster@"])
+async def test_triage_engine_detects_system_notifications(domain_prefix):
+    engine = TriageEngine()
+    
+    event = IncomingEvent(
+        id=f"msg_{domain_prefix}",
+        contact_id=f"{domain_prefix}example.com",
+        content="System alert",
+        timestamp=0.0,
+        headers={}
+    )
+    
+    decision = await engine.triage(event, contact=None)
+    
+    assert decision.decision_class in [TriageDecisionClass.ARCHIVE, TriageDecisionClass.LOW]
+    assert "automated" in decision.reason.lower() or "system" in decision.reason.lower()
