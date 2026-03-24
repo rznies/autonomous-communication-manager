@@ -86,18 +86,19 @@ Planned test order: `DebounceBuffer` → `ContactGraph` → `TriageEngine` → `
 | Issue #7: ContactGraph Decay | ✅ Complete (Temporal decay with lambda formulas based on relationship class) |
 | Issue #8: TriageEngine Graph Integration | ✅ Complete (Engine uses dynamic decayed score for decisions) |
 | Issue #9: Identity Confirmation | ✅ Complete (AgentLoop emits requests to ActivityFeed, feedback links graph nodes) |
+| Issue #10: Correction Learning | ✅ Complete (ActivityFeed corrections aggressively update TriageEngine weights) |
 | GitHub Sync | ✅ Code pushed to GitHub (policy: always push after major dev chunks) |
 
 ---
 
 ## Next Best Plan
 
-Now that Identity Confirmation allows the user to merge cross-channel contacts, we need to focus on Correction Learning to let the agent learn from ActivityFeed interventions.
+Now that the learning loop is closed (actions -> feed -> corrections -> engine), we need to harden the system's external boundaries, starting with how actions are executed against real platforms.
 
 **Development Policy**: Always push code to the repository using `gh` or `git` after completing a major chunk of development.
 
 The next steps follow the PRD execution path:
 
-1. **Grab Issue #10: Correction Learning**: Wire up the activity feed explicit corrections to aggressively update TriageEngine weights.
-2. **Grab Issue #11: ActionExecutor**: Formalize the read-only mode and write-scope gate.
-3. **Grab Issue #12: DraftGenerator**: Implement reply draft generation.
+1. **Grab Issue #11: ActionExecutor**: Formalize the read-only mode and write-scope gate.
+2. **Grab Issue #12: DraftGenerator**: Implement reply draft generation using Agentica Mini.
+3. **Grab Issue #13: Metrics**: Implement IDRR and Correction Rate tracking.

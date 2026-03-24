@@ -4,7 +4,7 @@ import asyncio
 from typing import Any
 from emailmanagement.debounce import DebounceBuffer, ContactEventBatch
 from emailmanagement.triage_engine import TriageEngine
-from emailmanagement.activity_feed import ActivityFeed, AgentAction, IdentityConfirmationRequest
+from emailmanagement.activity_feed import ActivityFeed, AgentAction, IdentityConfirmationRequest, ExplicitCorrection
 from emailmanagement.contact_graph import ContactGraph, InteractionType
 
 class AgentLoop:
@@ -21,9 +21,23 @@ class AgentLoop:
         self.engine = engine
         self.feed = feed
         self.buffer = DebounceBuffer(window_seconds=debounce_window, on_release=self._process_batch)
+        self._event_contact_map = {}
         
-        # Wire up the identity confirmation callback
+        # Wire up the callbacks
         self.feed._on_identity_confirm = self._handle_identity_confirmation
+        self.feed._on_correction = self._handle_correction
+
+    async def _handle_correction(self, correction: ExplicitCorrection):
+        from emailmanagement.triage_engine import TriageDecisionClass
+        action = next((a for a in self.feed.get_recent_actions() if a.id == correction.action_id), None)
+        if action:
+            contact_id = self._event_contact_map.get(action.event_id)
+            if contact_id:
+                try:
+                    decision_class = TriageDecisionClass[correction.corrected_decision.upper()]
+                    await self.engine.update_weights(contact_id, decision_class)
+                except KeyError:
+                    pass
 
     async def _handle_identity_confirmation(self, request_id: str, confirmed: bool):
         # We need to look up the request to get the IDs, but ActivityFeed removes it.
@@ -85,6 +99,8 @@ class AgentLoop:
         primary_event = batch.events[0] if batch.events else None
         if not primary_event:
             return
+            
+        self._event_contact_map[primary_event.id] = batch.contact_id
             
         decision = await self.engine.triage(primary_event, contact)
         
