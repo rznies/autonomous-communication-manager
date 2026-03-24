@@ -83,18 +83,20 @@ Planned test order: `DebounceBuffer` → `ContactGraph` → `TriageEngine` → `
 | Issue #4: AgentLoop | ✅ Complete (Tracer bullet wired) |
 | Issue #6A: TriageEngine Heuristics | ✅ Complete (Expanded mailing list & system notification detection) |
 | Issue #6B: TriageEngine Priors | ✅ Complete (Domain-based urgency mapped) |
+| Issue #7: ContactGraph Decay | ✅ Complete (Temporal decay with lambda formulas based on relationship class) |
+| Issue #8: TriageEngine Graph Integration | ✅ Complete (Engine uses dynamic decayed score for decisions) |
 | GitHub Sync | ✅ Code pushed to GitHub (policy: always push after major dev chunks) |
 
 ---
 
 ## Next Best Plan
 
-Now that the `TriageEngine` has robust heuristics for automated emails and pretrained domain priors, we need to focus on the `ContactGraph`'s dynamic features.
+Now that the `TriageEngine` and `ContactGraph` are fully integrated with behavioral learning and temporal decay, the next focus is **Identity Resolution and Correction Learning**.
 
 **Development Policy**: Always push code to the repository using `gh` or `git` after completing a major chunk of development.
 
 The next steps follow the PRD execution path:
 
-1. **Grab Issue #7: ContactGraph Decay**: Implement the actual temporal decay logic (e.g., calculating the $\lambda$ function on reads) to ensure stale relationships drop in importance.
-2. **Grab Issue #8: TriageEngine Graph Integration**: Combine the ContactGraph scores and the TriageEngine heuristics into a final decision matrix.
-3. **Grab Issue #9: Identity Confirmation**: Prompt for identity linking and match confidence.
+1. **Grab Issue #9: Identity Confirmation**: Prompt for identity linking and match confidence between Slack and Gmail.
+2. **Grab Issue #10: Correction Learning**: Wire up the activity feed explicit corrections to aggressively update TriageEngine weights.
+3. **Grab Issue #11: ActionExecutor**: Formalize the read-only mode and write-scope gate.

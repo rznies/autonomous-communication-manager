@@ -191,3 +191,39 @@ async def test_triage_engine_applies_domain_priors():
     decision_investor = await engine.triage(event_investor, contact=None)
     assert decision_investor.decision_class == TriageDecisionClass.URGENT
     assert "prior" in decision_investor.reason.lower()
+
+@pytest.mark.asyncio
+async def test_triage_engine_decayed_contact_loses_protection():
+    from emailmanagement.contact_graph import ContactGraph, InteractionType, RelationshipClass
+    from datetime import datetime, timedelta
+    
+    engine = TriageEngine()
+    graph = ContactGraph()
+    
+    base_time = datetime(2026, 1, 1, 12, 0)
+    
+    # Simulate a transaction over multiple days to build up score
+    for i in range(25):
+        await graph.record_interaction("vendor@example.com", InteractionType.EMAIL_RECEIVED, timestamp=base_time)
+        
+    await graph.set_relationship_class("vendor@example.com", RelationshipClass.TRANSACTIONAL)
+    
+    event = IncomingEvent(
+        id="msg_decay",
+        contact_id="vendor@example.com",
+        content="Invoice attached",
+        timestamp=0.0,
+        headers={"List-Unsubscribe": "<mailto:unsub@example.com>"} # would normally be archived
+    )
+    
+    # At t0, score is 25 (above 20 threshold), so it shouldn't be archived
+    contact_t0 = await graph.get_contact("vendor@example.com", current_time=base_time)
+    decision_t0 = await engine.triage(event, contact=contact_t0)
+    assert decision_t0.decision_class != TriageDecisionClass.ARCHIVE
+    
+    # At t+100 days, decayed score is below 20 (transactional lambda=0.05)
+    # 25 * exp(-0.05 * 100) = 25 * exp(-5) = 25 * 0.0067 = 0.16
+    later_time = base_time + timedelta(days=100)
+    contact_later = await graph.get_contact("vendor@example.com", current_time=later_time)
+    decision_later = await engine.triage(event, contact=contact_later)
+    assert decision_later.decision_class == TriageDecisionClass.ARCHIVE
