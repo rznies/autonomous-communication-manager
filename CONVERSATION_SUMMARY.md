@@ -89,16 +89,19 @@ Planned test order: `DebounceBuffer` → `ContactGraph` → `TriageEngine` → `
 | Issue #10: Correction Learning | ✅ Complete (ActivityFeed corrections aggressively update TriageEngine weights) |
 | Issue #11: ActionExecutor | ✅ Complete (Read-only defaults, write-scope gating, undo records for reversible actions) |
 | Issue #12: DraftGenerator | ✅ Complete (LLM-backed draft generation with tone adaptation) |
+| Issue #13: Metrics | ✅ Complete (IDRR and CR tracking, high CR alerts) |
 | GitHub Sync | ✅ Code pushed to GitHub (policy: always push after major dev chunks) |
 
 ---
 
 ## Next Best Plan
 
-With the DraftGenerator in place, the system has all its core operational components. Now we need to implement the final requirement: Metrics tracking to validate the central hypothesis.
+All 13 foundational tracer-bullet issues for the Phase 1 prototype have been completed successfully. The system now has a complete end-to-end "Observe" pipeline: it pulls messages, debounces them, builds relationship graphs, triages them using heuristics and priors, generates drafts, tracks its own performance metrics, and exposes a real-time activity feed that drives the learning loop.
 
 **Development Policy**: Always push code to the repository using `gh` or `git` after completing a major chunk of development.
 
-The next steps follow the PRD execution path:
-
-1. **Grab Issue #13: Metrics**: Implement IDRR and Correction Rate tracking.
+### What's next?
+The next phase involves taking this local prototype and:
+1. **Writing the Agentica Mini wrapper**: Connect the actual LLM `agentica` modules.
+2. **Plugging in real OAuth**: Move from `DummyPoller` to real `users.messages.list` and Slack webhooks.
+3. **Beginning the 30-Day Validation Test**: Start running the prototype against a real inbox to gather IDRR and CR data against the 40-60% target.
