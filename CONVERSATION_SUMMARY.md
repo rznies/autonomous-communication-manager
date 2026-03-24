@@ -82,18 +82,19 @@ Planned test order: `DebounceBuffer` → `ContactGraph` → `TriageEngine` → `
 | Issue #3: ActivityFeed | ✅ Complete (Undo/Reclassify added) |
 | Issue #4: AgentLoop | ✅ Complete (Tracer bullet wired) |
 | Issue #6A: TriageEngine Heuristics | ✅ Complete (Expanded mailing list & system notification detection) |
+| Issue #6B: TriageEngine Priors | ✅ Complete (Domain-based urgency mapped) |
 | GitHub Sync | ✅ Code pushed to GitHub (policy: always push after major dev chunks) |
 
 ---
 
 ## Next Best Plan
 
-Now that the `TriageEngine` has robust heuristics for automated emails, we need to add "priors" so it can understand the relative urgency of known domains.
+Now that the `TriageEngine` has robust heuristics for automated emails and pretrained domain priors, we need to focus on the `ContactGraph`'s dynamic features.
 
 **Development Policy**: Always push code to the repository using `gh` or `git` after completing a major chunk of development.
 
 The next steps follow the PRD execution path:
 
-1. **Grab Issue #6B: TriageEngine Priors**: Add pretrained priors (e.g., domain-based urgency for things like GitHub, Stripe, investors vs marketing).
-2. **Grab Issue #7: ContactGraph Decay**: Implement the actual temporal decay logic (e.g., calculating the $\lambda$ function on reads) to ensure stale relationships drop in importance.
-3. **Grab Issue #8: TriageEngine Graph Integration**: Combine the ContactGraph scores and the TriageEngine heuristics into a final decision matrix.
+1. **Grab Issue #7: ContactGraph Decay**: Implement the actual temporal decay logic (e.g., calculating the $\lambda$ function on reads) to ensure stale relationships drop in importance.
+2. **Grab Issue #8: TriageEngine Graph Integration**: Combine the ContactGraph scores and the TriageEngine heuristics into a final decision matrix.
+3. **Grab Issue #9: Identity Confirmation**: Prompt for identity linking and match confidence.

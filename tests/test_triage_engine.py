@@ -150,3 +150,44 @@ async def test_triage_engine_detects_system_notifications(domain_prefix):
     
     assert decision.decision_class in [TriageDecisionClass.ARCHIVE, TriageDecisionClass.LOW]
     assert "automated" in decision.reason.lower() or "system" in decision.reason.lower()
+
+@pytest.mark.asyncio
+async def test_triage_engine_applies_domain_priors():
+    engine = TriageEngine()
+    
+    # Stripe receipt -> NORMAL or LOW, but definitely not URGENT unless specified
+    event_stripe = IncomingEvent(
+        id="msg_stripe",
+        contact_id="receipts@stripe.com",
+        content="Payment received",
+        timestamp=0.0,
+        headers={"source": "gmail"}
+    )
+    decision_stripe = await engine.triage(event_stripe, contact=None)
+    assert decision_stripe.decision_class in [TriageDecisionClass.LOW, TriageDecisionClass.ARCHIVE]
+    assert "prior" in decision_stripe.reason.lower() or "heuristic" in decision_stripe.reason.lower()
+    
+    # GitHub mentions/reviews -> NORMAL
+    event_github = IncomingEvent(
+        id="msg_github",
+        contact_id="notifications@github.com",
+        content="Review requested",
+        timestamp=0.0,
+        headers={"source": "gmail"}
+    )
+    decision_github = await engine.triage(event_github, contact=None)
+    # Even though it's 'notifications@', GitHub prior might elevate it above ARCHIVE
+    assert decision_github.decision_class == TriageDecisionClass.NORMAL
+    assert "prior" in decision_github.reason.lower()
+
+    # Investor -> URGENT
+    event_investor = IncomingEvent(
+        id="msg_vc",
+        contact_id="partner@a16z.com",
+        content="Let's meet",
+        timestamp=0.0,
+        headers={"source": "gmail"}
+    )
+    decision_investor = await engine.triage(event_investor, contact=None)
+    assert decision_investor.decision_class == TriageDecisionClass.URGENT
+    assert "prior" in decision_investor.reason.lower()

@@ -17,6 +17,15 @@ class TriageDecision:
     reason: str
     confidence: float
 class TriageEngine:
+    DOMAIN_PRIORS = {
+        "stripe.com": TriageDecisionClass.LOW,
+        "github.com": TriageDecisionClass.NORMAL,
+        "linkedin.com": TriageDecisionClass.LOW,
+        "notion.so": TriageDecisionClass.LOW,
+        "a16z.com": TriageDecisionClass.URGENT,
+        "ycombinator.com": TriageDecisionClass.URGENT,
+    }
+
     def __init__(self):
         self._corrections = {}
 
@@ -52,6 +61,21 @@ class TriageEngine:
         # Rule 3: High importance contacts are never archived
         is_high_importance = contact and contact.importance_score > 20.0
         
+        contact_lower = event.contact_id.lower()
+        domain = contact_lower.split("@")[-1] if "@" in contact_lower else ""
+
+        # Pretrained Priors
+        if domain in self.DOMAIN_PRIORS:
+            # We don't archive high importance things, but we can set it to NORMAL
+            prior_class = self.DOMAIN_PRIORS[domain]
+            if is_high_importance and prior_class in [TriageDecisionClass.ARCHIVE, TriageDecisionClass.LOW]:
+                prior_class = TriageDecisionClass.NORMAL
+            return TriageDecision(
+                decision_class=prior_class,
+                reason=f"Prior: Known domain {domain}.",
+                confidence=0.8
+            )
+
         # Heuristic 1: Mailing list headers
         if event.headers:
             if "List-Unsubscribe" in event.headers:
