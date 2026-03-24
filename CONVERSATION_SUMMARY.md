@@ -88,17 +88,17 @@ Planned test order: `DebounceBuffer` → `ContactGraph` → `TriageEngine` → `
 | Issue #9: Identity Confirmation | ✅ Complete (AgentLoop emits requests to ActivityFeed, feedback links graph nodes) |
 | Issue #10: Correction Learning | ✅ Complete (ActivityFeed corrections aggressively update TriageEngine weights) |
 | Issue #11: ActionExecutor | ✅ Complete (Read-only defaults, write-scope gating, undo records for reversible actions) |
+| Issue #12: DraftGenerator | ✅ Complete (LLM-backed draft generation with tone adaptation) |
 | GitHub Sync | ✅ Code pushed to GitHub (policy: always push after major dev chunks) |
 
 ---
 
 ## Next Best Plan
 
-Now that actions are properly gated by permissions, we can safely introduce the generative AI component: the `DraftGenerator`.
+With the DraftGenerator in place, the system has all its core operational components. Now we need to implement the final requirement: Metrics tracking to validate the central hypothesis.
 
 **Development Policy**: Always push code to the repository using `gh` or `git` after completing a major chunk of development.
 
 The next steps follow the PRD execution path:
 
-1. **Grab Issue #12: DraftGenerator**: Implement reply draft generation using Agentica Mini.
-2. **Grab Issue #13: Metrics**: Implement IDRR and Correction Rate tracking.
+1. **Grab Issue #13: Metrics**: Implement IDRR and Correction Rate tracking.
