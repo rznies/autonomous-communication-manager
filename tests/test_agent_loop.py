@@ -50,3 +50,56 @@ async def test_agent_loop_observe_mode():
     assert len(recent_actions) == 1
     assert recent_actions[0].decision == "archive" # based on Newsletter header
     assert recent_actions[0].event_id == "evt_1"
+
+@pytest.mark.asyncio
+async def test_agent_loop_identity_confirmation():
+    event1 = IncomingEvent(
+        id="evt_email",
+        contact_id="john.doe@company.com",
+        timestamp=100.0,
+        content="Hello from email",
+        headers={"source": "gmail"}
+    )
+    event2 = IncomingEvent(
+        id="evt_slack",
+        contact_id="john.doe_slack",
+        timestamp=105.0,
+        content="Hello from slack",
+        headers={"source": "slack"}
+    )
+    
+    poller = MockPoller([event1, event2])
+    graph = ContactGraph()
+    engine = TriageEngine()
+    
+    # We will track if graph.link_identities is called
+    linked = []
+    original_link = graph.link_identities
+    async def mock_link(id1, id2, verified):
+        linked.append((id1, id2, verified))
+        await original_link(id1, id2, verified)
+    graph.link_identities = mock_link
+    
+    feed = ActivityFeed()
+    
+    loop = AgentLoop(
+        poller=poller,
+        graph=graph,
+        engine=engine,
+        feed=feed,
+        debounce_window=0.0
+    )
+    
+    await loop.step()
+    await asyncio.sleep(0.01)
+    
+    # Should have a pending identity request
+    reqs = feed.get_pending_identity_requests()
+    assert len(reqs) == 1
+    assert reqs[0].primary_id == "john.doe@company.com" or reqs[0].secondary_id == "john.doe@company.com"
+    
+    # Confirm it
+    await feed.resolve_identity(reqs[0].id, confirmed=True)
+    
+    assert len(linked) == 1
+    assert linked[0][2] is True # verified

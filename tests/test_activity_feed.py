@@ -110,3 +110,31 @@ async def test_undo_irreversible_action_raises_error():
     with pytest.raises(ValueError, match="Action act_124 is not reversible"):
         await feed.undo("act_124")
 
+@pytest.mark.asyncio
+async def test_emit_identity_confirmation_request():
+    from emailmanagement.activity_feed import IdentityConfirmationRequest
+    
+    received_confirmations = []
+    
+    async def mock_identity_callback(request_id, confirmed):
+        received_confirmations.append((request_id, confirmed))
+        
+    feed = ActivityFeed(on_identity_confirm=mock_identity_callback)
+    
+    req = IdentityConfirmationRequest(
+        id="req_1",
+        primary_id="alice@startup.com",
+        secondary_id="alice_slack",
+        confidence=0.85
+    )
+    
+    await feed.request_identity_confirmation(req)
+    
+    assert len(feed.get_pending_identity_requests()) == 1
+    
+    await feed.resolve_identity("req_1", confirmed=True)
+    
+    assert len(received_confirmations) == 1
+    assert received_confirmations[0] == ("req_1", True)
+    assert len(feed.get_pending_identity_requests()) == 0
+

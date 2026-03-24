@@ -85,18 +85,19 @@ Planned test order: `DebounceBuffer` → `ContactGraph` → `TriageEngine` → `
 | Issue #6B: TriageEngine Priors | ✅ Complete (Domain-based urgency mapped) |
 | Issue #7: ContactGraph Decay | ✅ Complete (Temporal decay with lambda formulas based on relationship class) |
 | Issue #8: TriageEngine Graph Integration | ✅ Complete (Engine uses dynamic decayed score for decisions) |
+| Issue #9: Identity Confirmation | ✅ Complete (AgentLoop emits requests to ActivityFeed, feedback links graph nodes) |
 | GitHub Sync | ✅ Code pushed to GitHub (policy: always push after major dev chunks) |
 
 ---
 
 ## Next Best Plan
 
-Now that the `TriageEngine` and `ContactGraph` are fully integrated with behavioral learning and temporal decay, the next focus is **Identity Resolution and Correction Learning**.
+Now that Identity Confirmation allows the user to merge cross-channel contacts, we need to focus on Correction Learning to let the agent learn from ActivityFeed interventions.
 
 **Development Policy**: Always push code to the repository using `gh` or `git` after completing a major chunk of development.
 
 The next steps follow the PRD execution path:
 
-1. **Grab Issue #9: Identity Confirmation**: Prompt for identity linking and match confidence between Slack and Gmail.
-2. **Grab Issue #10: Correction Learning**: Wire up the activity feed explicit corrections to aggressively update TriageEngine weights.
-3. **Grab Issue #11: ActionExecutor**: Formalize the read-only mode and write-scope gate.
+1. **Grab Issue #10: Correction Learning**: Wire up the activity feed explicit corrections to aggressively update TriageEngine weights.
+2. **Grab Issue #11: ActionExecutor**: Formalize the read-only mode and write-scope gate.
+3. **Grab Issue #12: DraftGenerator**: Implement reply draft generation.

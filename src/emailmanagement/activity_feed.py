@@ -16,6 +16,13 @@ class ExplicitCorrection:
     corrected_decision: str
     reason: str = ""
 
+@dataclass
+class IdentityConfirmationRequest:
+    id: str
+    primary_id: str
+    secondary_id: str
+    confidence: float
+
 class ActivityFeed:
     """
     Primary human-in-the-loop interface. Emits AgentAction records in real time
@@ -24,11 +31,14 @@ class ActivityFeed:
     def __init__(
         self, 
         on_correction: Callable[[ExplicitCorrection], Awaitable[None]] = None,
-        on_undo: Callable[[str], Awaitable[None]] = None
+        on_undo: Callable[[str], Awaitable[None]] = None,
+        on_identity_confirm: Callable[[str, bool], Awaitable[None]] = None
     ):
         self._on_correction = on_correction
         self._on_undo = on_undo
+        self._on_identity_confirm = on_identity_confirm
         self._recent_actions: List[AgentAction] = []
+        self._pending_identity_requests: List[IdentityConfirmationRequest] = []
         
     async def emit(self, action: AgentAction):
         """
@@ -42,6 +52,23 @@ class ActivityFeed:
         Returns the recent actions stored in the feed buffer.
         """
         return self._recent_actions
+
+    async def request_identity_confirmation(self, req: IdentityConfirmationRequest):
+        self._pending_identity_requests.append(req)
+        print(f"[ActivityFeed] Identity Match: Does {req.secondary_id} belong to {req.primary_id}? (Confidence: {req.confidence})")
+
+    def get_pending_identity_requests(self) -> List[IdentityConfirmationRequest]:
+        return self._pending_identity_requests
+        
+    async def resolve_identity(self, request_id: str, confirmed: bool):
+        req = next((r for r in self._pending_identity_requests if r.id == request_id), None)
+        if not req:
+            raise ValueError(f"Identity request {request_id} not found")
+            
+        self._pending_identity_requests.remove(req)
+        
+        if self._on_identity_confirm:
+            await self._on_identity_confirm(request_id, confirmed)
 
     async def receive_correction(self, correction: ExplicitCorrection):
         """
