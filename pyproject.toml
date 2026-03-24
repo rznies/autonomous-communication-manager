@@ -1,0 +1,13 @@
+[project]
+name = "emailmanagement"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "agentica",
+]
+
+[tool.uv.sources]
+agentica = { path = "./agentica-mini", editable = true }
+
