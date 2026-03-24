@@ -2,6 +2,21 @@ import pytest
 import asyncio
 from emailmanagement.activity_feed import ActivityFeed, AgentAction, ExplicitCorrection
 
+class MockObserver:
+    def __init__(self):
+        self.received_corrections = []
+        self.received_undos = []
+        self.received_confirmations = []
+        
+    async def on_correction(self, correction):
+        self.received_corrections.append(correction)
+
+    async def on_undo(self, action_id):
+        self.received_undos.append(action_id)
+
+    async def on_identity_confirm(self, request_id, confirmed):
+        self.received_confirmations.append((request_id, confirmed))
+
 @pytest.mark.asyncio
 async def test_emit_agent_action_stores_in_history():
     feed = ActivityFeed()
@@ -52,12 +67,9 @@ async def test_emit_identifies_reversible_actions():
 
 @pytest.mark.asyncio
 async def test_receive_explicit_correction():
-    received_corrections = []
-    
-    async def mock_callback(correction):
-        received_corrections.append(correction)
-        
-    feed = ActivityFeed(on_correction=mock_callback)
+    feed = ActivityFeed()
+    observer = MockObserver()
+    feed.subscribe(observer)
     
     correction = ExplicitCorrection(
         action_id="act_456",
@@ -67,18 +79,16 @@ async def test_receive_explicit_correction():
     
     await feed.receive_correction(correction)
     
-    assert len(received_corrections) == 1
-    assert received_corrections[0].action_id == "act_456"
-    assert received_corrections[0].corrected_decision == "urgent"
+    assert len(observer.received_corrections) == 1
+    assert observer.received_corrections[0].action_id == "act_456"
+    assert observer.received_corrections[0].corrected_decision == "urgent"
 
 @pytest.mark.asyncio
 async def test_undo_reversible_action():
-    received_undos = []
+    feed = ActivityFeed()
+    observer = MockObserver()
+    feed.subscribe(observer)
     
-    async def mock_undo_callback(action_id):
-        received_undos.append(action_id)
-        
-    feed = ActivityFeed(on_undo=mock_undo_callback)
     action = AgentAction(
         id="act_123", 
         event_id="evt_abc", 
@@ -91,8 +101,8 @@ async def test_undo_reversible_action():
     
     await feed.undo("act_123")
     
-    assert len(received_undos) == 1
-    assert received_undos[0] == "act_123"
+    assert len(observer.received_undos) == 1
+    assert observer.received_undos[0] == "act_123"
 
 @pytest.mark.asyncio
 async def test_undo_irreversible_action_raises_error():
@@ -114,12 +124,9 @@ async def test_undo_irreversible_action_raises_error():
 async def test_emit_identity_confirmation_request():
     from emailmanagement.activity_feed import IdentityConfirmationRequest
     
-    received_confirmations = []
-    
-    async def mock_identity_callback(request_id, confirmed):
-        received_confirmations.append((request_id, confirmed))
-        
-    feed = ActivityFeed(on_identity_confirm=mock_identity_callback)
+    feed = ActivityFeed()
+    observer = MockObserver()
+    feed.subscribe(observer)
     
     req = IdentityConfirmationRequest(
         id="req_1",
@@ -134,7 +141,21 @@ async def test_emit_identity_confirmation_request():
     
     await feed.resolve_identity("req_1", confirmed=True)
     
-    assert len(received_confirmations) == 1
-    assert received_confirmations[0] == ("req_1", True)
+    assert len(observer.received_confirmations) == 1
+    assert observer.received_confirmations[0] == ("req_1", True)
     assert len(feed.get_pending_identity_requests()) == 0
 
+@pytest.mark.asyncio
+async def test_subscribe_multiple_observers():
+    feed = ActivityFeed()
+    obs1 = MockObserver()
+    obs2 = MockObserver()
+    
+    feed.subscribe(obs1)
+    feed.subscribe(obs2)
+    
+    correction = ExplicitCorrection(action_id="act_1", corrected_decision="urgent")
+    await feed.receive_correction(correction)
+    
+    assert len(obs1.received_corrections) == 1
+    assert len(obs2.received_corrections) == 1

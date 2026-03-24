@@ -77,3 +77,42 @@ def test_parse_malformed_gmail_event():
     assert event.contact_id == "unknown_sender"
     assert event.content == ""
     assert event.timestamp == 0.0
+
+@pytest.mark.asyncio
+async def test_inbox_poller_poll_empty():
+    poller = InboxPoller()
+    events = await poller.poll()
+    assert events == []
+
+@pytest.mark.asyncio
+async def test_inbox_poller_poll_with_fetchers():
+    async def mock_slack_fetcher():
+        return [{
+            "client_msg_id": "slack_1",
+            "text": "Hello Slack",
+            "user": "U123"
+        }]
+        
+    async def mock_gmail_fetcher():
+        return [{
+            "id": "gmail_1",
+            "snippet": "Hello Gmail",
+            "payload": {
+                "headers": [{"name": "From", "value": "alice@gmail.com"}]
+            }
+        }]
+        
+    poller = InboxPoller(slack_fetcher=mock_slack_fetcher, gmail_fetcher=mock_gmail_fetcher)
+    events = await poller.poll()
+    
+    assert len(events) == 2
+    
+    slack_event = next(e for e in events if e.id == "slack_1")
+    assert slack_event.contact_id == "U123"
+    assert slack_event.content == "Hello Slack"
+    assert slack_event.headers["source"] == "slack"
+    
+    gmail_event = next(e for e in events if e.id == "gmail_1")
+    assert gmail_event.contact_id == "alice@gmail.com"
+    assert gmail_event.content == "Hello Gmail"
+    assert gmail_event.headers["source"] == "gmail"

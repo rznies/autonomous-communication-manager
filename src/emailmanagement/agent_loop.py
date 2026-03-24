@@ -4,30 +4,85 @@ import asyncio
 from typing import Any
 from emailmanagement.debounce import DebounceBuffer, ContactEventBatch
 from emailmanagement.triage_engine import TriageEngine
-from emailmanagement.activity_feed import ActivityFeed, AgentAction, IdentityConfirmationRequest, ExplicitCorrection
+from emailmanagement.activity_feed import ActivityFeed, AgentAction, SystemAlert
 from emailmanagement.contact_graph import ContactGraph, InteractionType
+from emailmanagement.identity_resolver import IdentityResolver
+from emailmanagement.metrics import MetricsTracker
+
 
 class AgentLoop:
+    """
+    Orchestrates the poll → debounce → triage → emit pipeline.
+
+    Construction:
+      - Use AgentLoop.create() for production and simple test scenarios.
+      - Use AgentLoop.__init__() directly when you need to inject a custom
+        DebounceBuffer or IdentityResolver (e.g. advanced test scenarios).
+
+    Public interface:
+      - step()    — run one poll-and-buffer cycle
+      - shutdown() — flush pending events and stop
+
+    All callback wiring and internal state management is encapsulated here.
+    Callers do not need to touch ActivityFeed callbacks or ContactGraph internals.
+    """
+
     def __init__(
-        self, 
-        poller: Any, 
-        graph: ContactGraph, 
-        engine: TriageEngine, 
+        self,
+        poller: Any,
+        graph: ContactGraph,
+        engine: TriageEngine,
         feed: ActivityFeed,
-        debounce_window: float = 90.0
+        buffer: DebounceBuffer,
+        resolver: IdentityResolver,
+        metrics: MetricsTracker = None,
     ):
         self.poller = poller
         self.graph = graph
         self.engine = engine
         self.feed = feed
-        self.buffer = DebounceBuffer(window_seconds=debounce_window, on_release=self._process_batch)
-        self._event_contact_map = {}
-        
-        # Wire up the callbacks
-        self.feed._on_identity_confirm = self._handle_identity_confirmation
-        self.feed._on_correction = self._handle_correction
+        self.buffer = buffer
+        self.resolver = resolver
+        self.metrics = metrics or MetricsTracker()
+        # Maps event_id -> contact_id for correction routing
+        self._event_contact_map: dict[str, str] = {}
 
-    async def _handle_correction(self, correction: ExplicitCorrection):
+    @classmethod
+    def create(
+        cls,
+        poller: Any,
+        graph: ContactGraph,
+        engine: TriageEngine,
+        feed: ActivityFeed,
+        debounce_window: float = 90.0,
+        metrics: MetricsTracker = None,
+    ) -> "AgentLoop":
+        """
+        Factory that wires all components correctly. Use this in production.
+        Internally creates the DebounceBuffer and IdentityResolver.
+        AgentLoop subscribes to the ActivityFeed explicitly as an observer.
+        """
+        resolver = IdentityResolver(graph=graph, feed=feed)
+
+        # Buffer is created after we have a reference to resolve the circular dep
+        instance = cls(
+            poller=poller,
+            graph=graph,
+            engine=engine,
+            feed=feed,
+            buffer=DebounceBuffer(window_seconds=debounce_window, on_release=None),
+            resolver=resolver,
+            metrics=metrics,
+        )
+        # Wire the buffer's on_release callback now that instance exists
+        instance.buffer.on_release = instance._process_batch
+        
+        # Subscribe AgentLoop to ActivityFeed
+        feed.subscribe(instance)
+        
+        return instance
+
+    async def on_correction(self, correction):
         from emailmanagement.triage_engine import TriageDecisionClass
         action = next((a for a in self.feed.get_recent_actions() if a.id == correction.action_id), None)
         if action:
@@ -36,86 +91,67 @@ class AgentLoop:
                 try:
                     decision_class = TriageDecisionClass[correction.corrected_decision.upper()]
                     await self.engine.update_weights(contact_id, decision_class)
+                    self.metrics.record_correction()
                 except KeyError:
                     pass
 
-    async def _handle_identity_confirmation(self, request_id: str, confirmed: bool):
-        # We need to look up the request to get the IDs, but ActivityFeed removes it.
-        # For this prototype, we'll store a local map of request_id -> (id1, id2)
-        if hasattr(self, "_pending_identity_links") and request_id in self._pending_identity_links:
-            id1, id2 = self._pending_identity_links.pop(request_id)
-            await self.graph.link_identities(id1, id2, verified=confirmed)
-
-    async def _check_identity_heuristics(self, new_contact_id: str):
-        # Basic heuristic: if one is 'john.doe@company.com' and the other is 'john.doe_slack'
-        # Or if the local parts match exactly.
-        if not hasattr(self, "_pending_identity_links"):
-            self._pending_identity_links = {}
-            
-        new_local = new_contact_id.split("@")[0].replace("_slack", "")
-        
-        for existing_id in self.graph._nodes.keys():
-            if existing_id == new_contact_id:
-                continue
-                
-            existing_local = existing_id.split("@")[0].replace("_slack", "")
-            
-            if new_local == existing_local:
-                # Potential match
-                req_id = str(uuid.uuid4())
-                self._pending_identity_links[req_id] = (existing_id, new_contact_id)
-                req = IdentityConfirmationRequest(
-                    id=req_id,
-                    primary_id=existing_id,
-                    secondary_id=new_contact_id,
-                    confidence=0.8
-                )
-                await self.feed.request_identity_confirmation(req)
-                return # Only trigger one per new contact
+    async def on_identity_confirm(self, request_id: str, confirmed: bool):
+        await self.resolver.confirm(request_id, confirmed)
 
     async def step(self):
+        """
+        One full cycle: poll events → record interactions → debounce.
+        Triage and emit happen asynchronously via the buffer's on_release callback.
+        """
         events = await self.poller.poll()
         for event in events:
-            # Reconcile different IncomingEvent schemas if necessary
-            # The poller might use sender_id, Debounce expects contact_id
+            self.metrics.record_incoming_message()
+            # Reconcile different IncomingEvent schemas
             if hasattr(event, "sender_id") and not hasattr(event, "contact_id"):
                 event.contact_id = event.sender_id
-                
-            # Check for identity matches before recording
-            if event.contact_id not in self.graph._nodes:
-                await self._check_identity_heuristics(event.contact_id)
-                
+
+            # Check for identity matches before recording (only for new contacts)
+            if event.contact_id not in self.graph.get_all_contact_ids():
+                await self.resolver.check_and_request(event.contact_id)
+
             await self.graph.record_interaction(event.contact_id, InteractionType.EMAIL_RECEIVED)
             await self.buffer.add_event(event)
 
-        # Allow the event loop to run the timeout tasks in the buffer
-        # This is especially needed when testing with debounce_window=0
+        # Allow the event loop to run any ready background tasks (e.g. debounce timers)
         await asyncio.sleep(0)
 
     async def _process_batch(self, batch: ContactEventBatch):
-        contact = await self.graph.get_contact(batch.contact_id)
-        
-        # In this prototype, we triage based on the first event in the batch
-        primary_event = batch.events[0] if batch.events else None
-        if not primary_event:
-            return
-            
-        self._event_contact_map[primary_event.id] = batch.contact_id
-            
-        decision = await self.engine.triage(primary_event, contact)
-        
-        decision_str = decision.decision_class.name.lower()
-        
-        action = AgentAction(
-            id=str(uuid.uuid4()),
-            event_id=primary_event.id,
-            decision=decision_str,
-            reason=decision.reason,
-            timestamp=time.time(),
-            is_reversible=(decision_str in ["archive", "low", "normal", "urgent"])
-        )
-        await self.feed.emit(action)
+        try:
+            contact = await self.graph.get_contact(batch.contact_id)
+
+            primary_event = batch.events[0] if batch.events else None
+            if not primary_event:
+                return
+
+            self._event_contact_map[primary_event.id] = batch.contact_id
+
+            decision = await self.engine.triage(primary_event, contact)
+            self.metrics.record_automated_decision()
+            decision_str = decision.decision_class.name.lower()
+
+            action = AgentAction(
+                id=str(uuid.uuid4()),
+                event_id=primary_event.id,
+                decision=decision_str,
+                reason=decision.reason,
+                timestamp=time.time(),
+                is_reversible=(decision_str in ["archive", "low", "normal", "urgent"]),
+            )
+            await self.feed.emit(action)
+        except Exception as e:
+            alert = SystemAlert(
+                id=str(uuid.uuid4()),
+                message=f"Triage failed for contact {batch.contact_id}: {str(e)}",
+                severity="ERROR",
+                timestamp=time.time()
+            )
+            await self.feed.emit_alert(alert)
 
     async def shutdown(self):
-        """Cleanly shutdown the loop and flush the buffer"""
+        """Cleanly shut down the loop and flush the buffer."""
         await self.buffer.shutdown(flush=True)

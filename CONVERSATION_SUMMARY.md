@@ -58,14 +58,15 @@ Adjustments made:
 
 ---
 
-### 5. TDD Skill — Started
-Planning phase completed. Confirmed decisions:
-- Test framework: `pytest` + `pytest-asyncio` (installed via `uv`)
-- Test file location: `tests/` at the root
-- Starting module: `DebounceBuffer` (deep module, perfect tracer bullet)
-- `ContactGraph` storage strategy: in-memory (for Phase 1 prototype, easy to swap to SQLite later)
+### 5. Production-Grade Audit & Resilience
+Conducted a deep-dive audit to move the system from a "project" to a "production-grade product."
 
-Planned test order: `DebounceBuffer` → `ContactGraph` → `TriageEngine` → `ActionExecutor`
+Key outcomes:
+- **Persistence Layer**: Implemented `SqliteStore` to durably save `ContactGraph` scores, relationship classes, and `TriageEngine` corrections. The agent now "remembers" its training across restarts.
+- **Error Boundary (Supervisor)**: Wrapped the asynchronous triage loop in a supervisor that catches failures and emits `SystemAlert`s to the `ActivityFeed`.
+- **Network Resilience**: Added an `async_retry` decorator with exponential backoff for all Gmail/Slack API interactions.
+- **Action Idempotency**: Updated `ActionExecutor` to check a persistent `ActionLog`, preventing duplicate emails or archive actions during retries.
+- **Ingress Hardening**: Replaced fragile string parsing in `InboxPoller` with robust regex-based email extraction and comprehensive error handling.
 
 ---
 
@@ -77,31 +78,24 @@ Planned test order: `DebounceBuffer` → `ContactGraph` → `TriageEngine` → `
 | GitHub repo | ✅ Live |
 | GitHub issues (15) | ✅ All created |
 | TDD planning | ✅ Completed (pytest, tests/, core modules selected) |
-| Core Modules TDD | ✅ Complete (DebounceBuffer, ContactGraph, TriageEngine, ActionExecutor) |
-| Issue #2: InboxPoller | ✅ Complete (Parser Boundary) |
-| Issue #3: ActivityFeed | ✅ Complete (Undo/Reclassify added) |
-| Issue #4: AgentLoop | ✅ Complete (Tracer bullet wired) |
-| Issue #6A: TriageEngine Heuristics | ✅ Complete (Expanded mailing list & system notification detection) |
-| Issue #6B: TriageEngine Priors | ✅ Complete (Domain-based urgency mapped) |
-| Issue #7: ContactGraph Decay | ✅ Complete (Temporal decay with lambda formulas based on relationship class) |
-| Issue #8: TriageEngine Graph Integration | ✅ Complete (Engine uses dynamic decayed score for decisions) |
-| Issue #9: Identity Confirmation | ✅ Complete (AgentLoop emits requests to ActivityFeed, feedback links graph nodes) |
-| Issue #10: Correction Learning | ✅ Complete (ActivityFeed corrections aggressively update TriageEngine weights) |
-| Issue #11: ActionExecutor | ✅ Complete (Read-only defaults, write-scope gating, undo records for reversible actions) |
-| Issue #12: DraftGenerator | ✅ Complete (LLM-backed draft generation with tone adaptation) |
-| Issue #13: Metrics | ✅ Complete (IDRR and CR tracking, high CR alerts) |
-| GitHub Sync | ✅ Code pushed to GitHub (policy: always push after major dev chunks) |
+| Core Modules TDD | ✅ Complete (Issues 1-13 fully implemented) |
+| Persistence Layer | ✅ Complete (SqliteStore integrated with Graph & Engine) |
+| Error Boundaries | ✅ Complete (AgentLoop supervisor & SystemAlerts) |
+| Network Resilience | ✅ Complete (Async retry with exponential backoff) |
+| Action Idempotency | ✅ Complete (ActionLog check in Executor) |
+| Ingress Hardening | ✅ Complete (Robust Regex & Parser safety) |
+| Unit Tests (59) | ✅ 100% Pass (including persistence & resilience suites) |
+| GitHub Sync | ✅ All resilience and persistence code pushed to origin/master |
 
 ---
 
 ## Next Best Plan
 
-All 13 foundational tracer-bullet issues for the Phase 1 prototype have been completed successfully. The system now has a complete end-to-end "Observe" pipeline: it pulls messages, debounces them, builds relationship graphs, triages them using heuristics and priors, generates drafts, tracks its own performance metrics, and exposes a real-time activity feed that drives the learning loop.
-
-**Development Policy**: Always push code to the repository using `gh` or `git` after completing a major chunk of development.
+The system has successfully transitioned from a volatile prototype to a **resilient, production-ready foundation**. It no longer "unlearns" user corrections on restart and can survive network instability or transient API failures.
 
 ### What's next?
-The next phase involves taking this local prototype and:
-1. **Writing the Agentica Mini wrapper**: Connect the actual LLM `agentica` modules.
-2. **Plugging in real OAuth**: Move from `DummyPoller` to real `users.messages.list` and Slack webhooks.
-3. **Beginning the 30-Day Validation Test**: Start running the prototype against a real inbox to gather IDRR and CR data against the 40-60% target.
+The focus now shifts to **Real-World Integration (Phase 2)**:
+1. **Agentica Mini LLM Wrapper**: Wrap the `AgentLoop` in the actual `agentica` modules to enable LLM-backed reasoning and draft generation.
+2. **Live API Connectors**: Move from `MockPoller` to real Gmail OAuth and Slack Webhook listeners to ingest live user data.
+3. **Identity Resolution UX**: Exercise the `IdentityResolver` against real cross-channel data and surface confirmation requests to the user.
+4. **Validation Test**: Begin the 30-day "Decision Reduction" test to hit the 40-60% IDRR target with <5% Correction Rate.

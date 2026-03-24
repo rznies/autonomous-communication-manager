@@ -90,3 +90,16 @@ async def test_unverified_identity_link_does_not_merge():
     
     assert c_email.id != c_slack.id
     assert c_email.interaction_count == 1
+
+@pytest.mark.asyncio
+async def test_get_all_contact_ids_returns_recorded_ids():
+    """get_all_contact_ids() is the public accessor that replaces _nodes.keys() access."""
+    graph = ContactGraph()
+    await graph.record_interaction("alice@corp.com", InteractionType.EMAIL_RECEIVED)
+    await graph.record_interaction("bob_slack", InteractionType.EMAIL_RECEIVED)
+
+    ids = graph.get_all_contact_ids()
+
+    assert "alice@corp.com" in ids
+    assert "bob_slack" in ids
+    assert len(ids) == 2

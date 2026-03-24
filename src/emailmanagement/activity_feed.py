@@ -23,22 +23,33 @@ class IdentityConfirmationRequest:
     secondary_id: str
     confidence: float
 
+@dataclass
+class SystemAlert:
+    id: str
+    message: str
+    severity: str  # e.g., "ERROR", "WARNING", "INFO"
+    timestamp: float
+
 class ActivityFeed:
     """
     Primary human-in-the-loop interface. Emits AgentAction records in real time
     and handles user corrections.
     """
-    def __init__(
-        self, 
-        on_correction: Callable[[ExplicitCorrection], Awaitable[None]] = None,
-        on_undo: Callable[[str], Awaitable[None]] = None,
-        on_identity_confirm: Callable[[str, bool], Awaitable[None]] = None
-    ):
-        self._on_correction = on_correction
-        self._on_undo = on_undo
-        self._on_identity_confirm = on_identity_confirm
+    def __init__(self):
         self._recent_actions: List[AgentAction] = []
         self._pending_identity_requests: List[IdentityConfirmationRequest] = []
+        self._alerts: List[SystemAlert] = []
+        self._observers = []
+
+    def subscribe(self, observer) -> None:
+        """Subscribe an observer to feed events."""
+        if observer not in self._observers:
+            self._observers.append(observer)
+
+    def unsubscribe(self, observer) -> None:
+        """Unsubscribe an observer."""
+        if observer in self._observers:
+            self._observers.remove(observer)
         
     async def emit(self, action: AgentAction):
         """
@@ -46,12 +57,28 @@ class ActivityFeed:
         """
         self._recent_actions.append(action)
         print(f"[ActivityFeed] Action {action.id}: decided {action.decision} for event {action.event_id}. Reason: {action.reason}")
+        for obs in self._observers:
+            if hasattr(obs, 'on_action_emitted'):
+                await obs.on_action_emitted(action)
+
+    async def emit_alert(self, alert: SystemAlert):
+        """
+        Emits a system alert to the feed for reporting internal failures.
+        """
+        self._alerts.append(alert)
+        print(f"[ActivityFeed] !!! {alert.severity} ALERT !!! {alert.message}")
+        for obs in self._observers:
+            if hasattr(obs, 'on_alert'):
+                await obs.on_alert(alert)
         
     def get_recent_actions(self) -> List[AgentAction]:
         """
         Returns the recent actions stored in the feed buffer.
         """
         return self._recent_actions
+
+    def get_alerts(self) -> List[SystemAlert]:
+        return self._alerts
 
     async def request_identity_confirmation(self, req: IdentityConfirmationRequest):
         self._pending_identity_requests.append(req)
@@ -67,17 +94,19 @@ class ActivityFeed:
             
         self._pending_identity_requests.remove(req)
         
-        if self._on_identity_confirm:
-            await self._on_identity_confirm(request_id, confirmed)
+        for obs in self._observers:
+            if hasattr(obs, 'on_identity_confirm'):
+                await obs.on_identity_confirm(request_id, confirmed)
 
     async def receive_correction(self, correction: ExplicitCorrection):
         """
         Receives an explicit correction from the user interface and routes it
-        back to the learning system via the callback.
+        back to the learning system via observers.
         """
         print(f"[ActivityFeed] Received correction for action {correction.action_id}: now {correction.corrected_decision}")
-        if self._on_correction:
-            await self._on_correction(correction)
+        for obs in self._observers:
+            if hasattr(obs, 'on_correction'):
+                await obs.on_correction(correction)
 
     async def undo(self, action_id: str):
         """
@@ -91,5 +120,6 @@ class ActivityFeed:
             raise ValueError(f"Action {action_id} is not reversible")
             
         print(f"[ActivityFeed] Undoing action {action_id}")
-        if self._on_undo:
-            await self._on_undo(action_id)
+        for obs in self._observers:
+            if hasattr(obs, 'on_undo'):
+                await obs.on_undo(action_id)

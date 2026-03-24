@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import AsyncMock
 from emailmanagement.action_executor import ActionExecutor, ActionType, ExecutionRequest
 
 class DummyPlatformClient:
@@ -11,8 +12,33 @@ class DummyPlatformClient:
     async def send_message(self, to: str, content: str):
         self.mutations.append(("send", to, content))
 
+from emailmanagement.persistence import SqliteStore
+
 @pytest.mark.asyncio
-async def test_action_executor_respects_dry_run():
+async def test_action_executor_idempotency(tmp_path):
+    db_file = str(tmp_path / "test_idempotency.db")
+    store = SqliteStore(db_file)
+    
+    mock_platform = AsyncMock()
+    executor = ActionExecutor(platform_client=mock_platform, has_write_scope=True, store=store)
+    
+    request = ExecutionRequest(
+        action_type=ActionType.ARCHIVE,
+        message_id="msg_repeat",
+        dry_run=False
+    )
+    
+    # First execution
+    result1 = await executor.execute(request)
+    assert result1.success is True
+    assert result1.action_id != "already-executed"
+    assert mock_platform.archive_message.call_count == 1
+    
+    # Second execution (should be skipped)
+    result2 = await executor.execute(request)
+    assert result2.success is True
+    assert result2.action_id == "already-executed"
+    assert mock_platform.archive_message.call_count == 1  # Still 1
     # Arrange
     platform_client = DummyPlatformClient()
     executor = ActionExecutor(platform_client=platform_client)

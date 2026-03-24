@@ -1,6 +1,7 @@
+import uuid
 from enum import Enum, auto
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 class ActionType(Enum):
     ARCHIVE = auto()
@@ -28,10 +29,13 @@ class ExecutionResult:
     is_reversible: bool = False
     undo_record: Any = None
 
+from emailmanagement.persistence import SqliteStore
+
 class ActionExecutor:
-    def __init__(self, platform_client: Any = None, has_write_scope: bool = False):
+    def __init__(self, platform_client: Any = None, has_write_scope: bool = False, store: Optional[SqliteStore] = None):
         self.platform_client = platform_client
         self.has_write_scope = has_write_scope
+        self.store = store
         
     async def execute(self, request: ExecutionRequest) -> ExecutionResult:
         if not self.has_write_scope and not request.dry_run:
@@ -39,26 +43,42 @@ class ActionExecutor:
             
         if request.dry_run:
             return ExecutionResult(success=True, was_dry_run=True, action_id="dry-run-id")
+
+        # Check for idempotency if store is available
+        if self.store and request.message_id:
+            status = self.store.get_message_action_status(request.message_id, request.action_type.name)
+            if status == "SUCCESS":
+                return ExecutionResult(success=True, was_dry_run=False, action_id="already-executed")
+            
+        action_id = str(uuid.uuid4())
             
         if request.action_type == ActionType.ARCHIVE:
             if self.platform_client:
                 await self.platform_client.archive_message(request.message_id)
+            
+            if self.store:
+                self.store.log_action(action_id, request.message_id, "ARCHIVE", "SUCCESS")
+                
             return ExecutionResult(
                 success=True, 
                 was_dry_run=False, 
-                action_id="live-action-id",
+                action_id=action_id,
                 is_reversible=True,
                 undo_record=UndoRecord(action_type=ActionType.ARCHIVE, item_id=request.message_id)
             )
         elif request.action_type == ActionType.SEND:
             if self.platform_client:
                 await self.platform_client.send_message(request.to, request.content)
+            
+            if self.store:
+                self.store.log_action(action_id, request.message_id, "SEND", "SUCCESS")
+                
             return ExecutionResult(
                 success=True, 
                 was_dry_run=False, 
-                action_id="live-action-id",
+                action_id=action_id,
                 is_reversible=False,
                 undo_record=None
             )
                 
-        return ExecutionResult(success=True, was_dry_run=False, action_id="live-action-id")
+        return ExecutionResult(success=True, was_dry_run=False, action_id=action_id)
