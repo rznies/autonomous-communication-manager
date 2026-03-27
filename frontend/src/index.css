@@ -1,0 +1,123 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@plugin "@tailwindcss/container-queries";
+@plugin "@tailwindcss/forms";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-headline: "Inter", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-primary: #bdc2ff;
+  --color-surface-dim: #131313;
+  --color-on-tertiary: #003641;
+  --color-surface: #131313;
+  --color-surface-tint: #bdc2ff;
+  --color-on-primary-container: #fdfaff;
+  --color-tertiary-fixed: #afecff;
+  --color-on-primary-fixed: #000965;
+  --color-on-secondary-fixed: #1b1b1f;
+  --color-primary-fixed: #dfe0ff;
+  --color-outline-variant: #454652;
+  --color-tertiary: #8dd1e5;
+  --color-tertiary-fixed-dim: #8dd1e5;
+  --color-on-secondary-container: #b6b4b9;
+  --color-tertiary-container: #367d90;
+  --color-inverse-primary: #4854bb;
+  --color-surface-container-highest: #353534;
+  --color-background: #131313;
+  --color-on-error-container: #ffdad6;
+  --color-error-container: #93000a;
+  --color-inverse-on-surface: #313030;
+  --color-on-tertiary-fixed: #001f27;
+  --color-surface-variant: #353534;
+  --color-on-tertiary-fixed-variant: #004e5d;
+  --color-primary-fixed-dim: #bdc2ff;
+  --color-surface-container-lowest: #0e0e0e;
+  --color-secondary: #c8c5cb;
+  --color-on-background: #e5e2e1;
+  --color-outline: #908f9e;
+  --color-on-tertiary-container: #f7fdff;
+  --color-on-surface-variant: #c6c5d5;
+  --color-on-primary: #121f8b;
+  --color-surface-bright: #3a3939;
+  --color-secondary-fixed-dim: #c8c5cb;
+  --color-surface-container: #201f1f;
+  --color-on-secondary: #303034;
+  --color-surface-container-high: #2a2a2a;
+  --color-on-surface: #e5e2e1;
+  --color-surface-container-low: #1c1b1b;
+  --color-error: #ffb4ab;
+  --color-secondary-container: #47464b;
+  --color-primary-container: #5e6ad2;
+  --color-inverse-surface: #e5e2e1;
+  --color-on-primary-fixed-variant: #2e3aa2;
+  --color-on-error: #690005;
+  --color-secondary-fixed: #e4e1e7;
+  --color-on-secondary-fixed-variant: #47464b;
+
+  --color-foreground: #e5e2e1;
+  --color-muted: #353534;
+  --color-muted-foreground: #c6c5d5;
+  --color-card: #201f1f;
+  --color-card-foreground: #e5e2e1;
+  --color-popover: #2a2a2a;
+  --color-popover-foreground: #e5e2e1;
+  --color-border: #454652;
+  --color-input: #454652;
+  --color-primary-foreground: #121f8b;
+  --color-secondary-foreground: #303034;
+  --color-accent: #353534;
+  --color-accent-foreground: #e5e2e1;
+  --color-destructive: #ffb4ab;
+  --color-destructive-foreground: #690005;
+  --color-ring: #bdc2ff;
+
+  --radius: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-full: 0.75rem;
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border, currentColor);
+  }
+}
+
+@layer base {
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  }
+}
+
+@utility mono-numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@utility glass-panel {
+  background: rgba(53, 53, 52, 0.4);
+  backdrop-filter: blur(12px);
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #353534; border-radius: 10px; }
