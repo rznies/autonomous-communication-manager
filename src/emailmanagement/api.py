@@ -146,12 +146,31 @@ def get_queue():
 def approve_queue_item(item_id: int):
     """Approve a queued item by ID."""
     global queue_items
-    original_len = len(queue_items)
-    queue_items = [item for item in queue_items if item["id"] != item_id]
-    if len(queue_items) == original_len:
+    approved_item = next((item for item in queue_items if item["id"] == item_id), None)
+    if approved_item is None:
         raise HTTPException(status_code=404, detail=f"Queue item {item_id} not found")
+
+    queue_items = [item for item in queue_items if item["id"] != item_id]
     metrics.record_automated_decision()
-    return {"success": True}
+    action = AgentAction(
+        id=str(uuid.uuid4()),
+        event_id=str(item_id),
+        decision="normal",
+        reason=f"Approved {approved_item['type']} message for {approved_item['recipient']}",
+        timestamp=time.time(),
+        is_reversible=True,
+    )
+    feed._recent_actions.insert(0, action)
+    return {
+        "success": True,
+        "action": {
+            "id": action.id,
+            "decision": action.decision,
+            "reason": action.reason,
+            "timestamp": action.timestamp,
+            "is_reversible": action.is_reversible,
+        },
+    }
 
 
 @app.get("/api/contacts")
