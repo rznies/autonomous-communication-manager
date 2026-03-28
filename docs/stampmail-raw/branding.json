@@ -1,0 +1,92 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "Suisse",
+      "role": "unknown"
+    }
+  ],
+  "colors": {
+    "primary": "#001229",
+    "accent": "#0145F2",
+    "background": "#FFFFFF",
+    "textPrimary": "#0145F2",
+    "link": "#0145F2"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Suisse",
+      "heading": "Suisse"
+    },
+    "fontStacks": {
+      "heading": [
+        "ui-sans-serif",
+        "system-ui",
+        "sans-serif",
+        "Apple Color Emoji",
+        "Segoe UI Emoji",
+        "Segoe UI Symbol",
+        "Noto Color Emoji"
+      ],
+      "body": [
+        "ui-sans-serif",
+        "system-ui",
+        "sans-serif",
+        "Apple Color Emoji",
+        "Segoe UI Emoji",
+        "Segoe UI Symbol",
+        "Noto Color Emoji"
+      ],
+      "paragraph": [
+        "Suisse"
+      ]
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "8px"
+  },
+  "components": {
+    "buttonPrimary": {
+      "background": "#0145F2",
+      "textColor": "#09090B",
+      "borderColor": "#E4E4E7",
+      "borderRadius": "12px",
+      "borderRadiusCorners": {
+        "topLeft": "12px",
+        "topRight": "12px",
+        "bottomRight": "12px",
+        "bottomLeft": "12px"
+      },
+      "shadow": "none"
+    },
+    "buttonSecondary": {
+      "background": "#001229",
+      "textColor": "#09090B",
+      "borderRadius": "0px",
+      "borderRadiusCorners": {
+        "topLeft": "0px",
+        "topRight": "0px",
+        "bottomRight": "0px",
+        "bottomLeft": "0px"
+      },
+      "shadow": "none"
+    }
+  },
+  "images": {
+    "logo": "https://www.stampmail.ai/_next/static/media/stamp-full-950.8388102a.svg",
+    "favicon": "https://www.stampmail.ai/icon.ico?7316892dfd296030",
+    "ogImage": null,
+    "logoHref": "/",
+    "logoAlt": "Stamp, the AI Secretary that handles your email and calendar for you."
+  },
+  "personality": {
+    "tone": "modern",
+    "energy": "medium",
+    "targetAudience": "tech-savvy professionals"
+  },
+  "designSystem": {
+    "framework": "tailwind",
+    "componentLibrary": ""
+  }
+}
