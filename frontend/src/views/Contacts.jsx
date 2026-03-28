@@ -3,16 +3,30 @@ import { ShieldCheck, Users, Mail, MessageSquare, Bot, UserCheck } from "lucide-
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { motion } from "framer-motion";
+
+const fadeIn = {
+  hidden: { opacity: 0, y: 15 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.08 }
+  }
+};
 
 function ClassBadge({ relationshipClass }) {
   const styles = {
-    FREQUENT: "bg-primary/15 text-primary",
-    PERIODIC: "bg-secondary/15 text-secondary",
-    TRANSACTIONAL: "bg-tertiary/15 text-tertiary",
-    AUTOMATED: "bg-surface-container-highest text-on-surface-variant",
+    FREQUENT: "bg-primary/10 text-primary border-primary/20",
+    PERIODIC: "bg-blue-50 text-blue-700 border-blue-200",
+    TRANSACTIONAL: "bg-gray-100 text-gray-700 border-gray-200",
+    AUTOMATED: "bg-surface-container text-on-surface-variant border-surface-container-high",
   };
   return (
-    <Badge className={`${styles[relationshipClass] || styles.PERIODIC} border-none text-[10px] font-bold uppercase tracking-widest`}>
+    <Badge className={`${styles[relationshipClass] || styles.PERIODIC} border text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded shadow-sm`}>
       {relationshipClass}
     </Badge>
   );
@@ -44,83 +58,89 @@ export default function Contacts() {
   }, []);
 
   return (
-    <>
-      <div className="flex justify-between items-end mb-8">
+    <motion.div initial="hidden" animate="visible" variants={staggerContainer} className="max-w-6xl mx-auto">
+      <motion.div variants={fadeIn} className="flex justify-between items-end mb-8">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 rounded-full bg-tertiary animate-pulse"></div>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-tertiary font-bold">System Online</span>
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] animate-pulse"></div>
+            <span className="text-[10px] uppercase tracking-[0.15em] text-on-surface-variant font-bold">System Online</span>
           </div>
-          <h2 className="text-3xl font-extrabold tracking-tight">Contacts</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-on-surface">Contacts Directory</h2>
         </div>
         <div className="flex gap-2">
           {!loading && contacts && (
-            <Badge variant="outline" className="bg-surface-container-low px-4 py-2 rounded-sm text-xs font-mono text-on-surface-variant flex items-center gap-2 border-none">
-              <Users size={14} />
-              {contacts.length} contacts tracked
-            </Badge>
+            <div className="bg-surface-container-low border border-surface-container-high px-4 py-2 rounded-lg text-xs font-medium text-on-surface-variant flex items-center gap-2 shadow-sm">
+              <Users size={14} className="text-primary" />
+              {contacts.length} Tracked Entities
+            </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Contacts list */}
-      <div className="space-y-3">
+      <motion.div variants={staggerContainer} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {loading ? (
           <>
-            <Skeleton className="h-20 w-full bg-surface-container-high rounded-sm" />
-            <Skeleton className="h-20 w-full bg-surface-container-high rounded-sm" />
-            <Skeleton className="h-20 w-full bg-surface-container-high rounded-sm" />
-            <Skeleton className="h-20 w-full bg-surface-container-high rounded-sm" />
+            <Skeleton className="h-[120px] w-full bg-surface-container-high rounded-2xl" />
+            <Skeleton className="h-[120px] w-full bg-surface-container-high rounded-2xl" />
+            <Skeleton className="h-[120px] w-full bg-surface-container-high rounded-2xl" />
+            <Skeleton className="h-[120px] w-full bg-surface-container-high rounded-2xl" />
           </>
         ) : contacts?.map(contact => (
-          <Card
-            key={contact.id}
-            className={`bg-surface-container-low border-transparent hover:border-outline-variant/30 transition-all group rounded-sm shadow-none ${contact.is_protected ? "border-l-2 border-l-primary" : ""}`}
-          >
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-sm bg-surface-container-highest flex items-center justify-center">
-                    {contact.relationship_class === "AUTOMATED" ? (
-                      <Bot className="w-5 h-5 text-on-surface-variant" />
-                    ) : contact.relationship_class === "FREQUENT" ? (
-                      <UserCheck className="w-5 h-5 text-primary" />
-                    ) : (
-                      <Mail className="w-5 h-5 text-on-surface-variant" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-bold text-on-surface font-mono">{contact.id}</h4>
-                      {contact.is_protected && (
-                        <ShieldCheck className="w-4 h-4 text-primary" />
+          <motion.div variants={fadeIn} key={contact.id}>
+            <Card
+              className={`bg-white border-surface-container-high hover:border-primary/30 hover:shadow-md transition-all duration-200 group rounded-2xl shadow-sm overflow-hidden ${contact.is_protected ? "ring-1 ring-primary/20" : ""}`}
+            >
+              <CardContent className="p-6 relative">
+                {contact.is_protected && (
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-primary/10 to-transparent pointer-events-none rounded-tr-2xl"></div>
+                )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-surface-container-low border border-surface-container-high flex items-center justify-center flex-shrink-0 shadow-sm">
+                      {contact.relationship_class === "AUTOMATED" ? (
+                        <Bot className="w-5 h-5 text-on-surface-variant" />
+                      ) : contact.relationship_class === "FREQUENT" ? (
+                        <UserCheck className="w-5 h-5 text-primary" />
+                      ) : (
+                        <Mail className="w-5 h-5 text-on-surface-variant" />
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <ClassBadge relationshipClass={contact.relationship_class} />
-                      <span className="text-[10px] text-on-surface-variant font-mono">
-                        {contact.interaction_count} interactions
-                      </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-sm font-semibold text-on-surface truncate">{contact.id}</h4>
+                        {contact.is_protected && (
+                          <ShieldCheck className="w-4 h-4 text-primary flex-shrink-0" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <ClassBadge relationshipClass={contact.relationship_class} />
+                        <span className="text-[10px] text-on-surface-variant font-medium flex items-center gap-1">
+                          <MessageSquare className="w-3 h-3" />
+                          {contact.interaction_count}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs font-medium uppercase tracking-widest text-on-surface-variant mb-1">Score</div>
-                  <span className="text-2xl font-extrabold mono-numeric text-on-surface tracking-tighter">
-                    {contact.importance_score}
-                  </span>
-                  <div className="mt-2 h-1 w-16 bg-surface-container-highest rounded-full overflow-hidden ml-auto">
-                    <div
-                      className="h-full bg-gradient-to-r from-primary-container to-primary"
-                      style={{ width: `${Math.min((contact.importance_score / 25) * 100, 100)}%` }}
-                    ></div>
+                  <div className="text-right flex-shrink-0 pl-4">
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Affinity</div>
+                    <span className="text-3xl font-extrabold text-on-surface tracking-tighter block leading-none">
+                      {contact.importance_score}
+                    </span>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                
+                <div className="mt-5 h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all duration-1000 ease-out"
+                    style={{ width: `${Math.min((contact.importance_score / 25) * 100, 100)}%` }}
+                  ></div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         ))}
-      </div>
-    </>
+      </motion.div>
+    </motion.div>
   );
 }

@@ -1,6 +1,8 @@
-# Autonomous Communication Manager
+# Layer (Autonomous Communication Manager)
 
-A personal AI agent that reduces communication decision overhead by acting as a **cross-channel triage layer** across Gmail and Slack.
+Layer is an AI-powered communication manager that triages, drafts, and automates your emails and Slack messages so you can focus on deep work.
+
+Layer acts as an intelligent shield between you and your daily influx of emails and Slack messages. It works by continuously monitoring your inboxes, using artificial intelligence to analyze the context, sender relationship, and urgency of every incoming message to assign it an importance score. Based on these scores, the system automatically archives low-value noise and handles routine interactions, while pre-drafting context-aware replies for legitimate inquiries. Finally, high-priority messages are surfaced in a clean, unified dashboard where you can quickly review, edit, or approve the AI's drafted responses with a single click, drastically reducing the time you spend managing your inbox.
 
 > **Status**: Prototype — Phase 1 development
 
