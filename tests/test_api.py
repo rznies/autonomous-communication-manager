@@ -84,6 +84,37 @@ def test_approve_returns_success(client):
     assert response.json()["success"] is True
 
 
+def test_approve_returns_activity_action_and_feed_updates(client):
+    # Regression: ISSUE-003 — queue approvals did not show up in recent activity
+    # Found by /qa on 2026-03-28
+    # Report: .gstack/qa-reports/qa-report-127-0-0-1-2026-03-28.md
+    from emailmanagement import api
+
+    api.queue_items = [
+        {
+            "id": 42,
+            "type": "slack",
+            "recipient": "#support",
+            "title": "Escalated incident",
+            "score": 97,
+            "one_line_summary": "Customer reports new checkout failures",
+        }
+    ]
+    baseline_actions = len(api.feed.get_recent_actions())
+
+    response = client.post("/api/queue/42/approve")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["action"]["decision"] == "normal"
+    assert data["action"]["reason"] == "Approved slack message for #support"
+
+    actions = client.get("/api/activity").json()
+    assert actions[0]["reason"] == "Approved slack message for #support"
+    assert len(api.feed.get_recent_actions()) == baseline_actions + 1
+
+
 def test_approve_removes_item_from_queue(client):
     client.post("/api/queue/2/approve")
     ids = [item["id"] for item in client.get("/api/queue").json()]
