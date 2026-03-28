@@ -16,3 +16,4 @@ wheels/
 logs_agent/
 logs_runtime/
 .gstack/
+.firecrawl/
