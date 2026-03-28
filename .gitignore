@@ -8,11 +8,15 @@ wheels/
 
 # Virtual environments
 .venv
-
-# Environment secrets
 .env
+.env.*
+.envrc
+!.env.example
+!.env.sample
+!.env.template
 
-# Agentica logs
+# Local runtime artifacts
+data/
 logs_agent/
 logs_runtime/
 .gstack/

@@ -6,20 +6,64 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
+const fallbackActivity = [
+  { id: "fallback-1", decision: "urgent", reason: "Investor email identified, flagged for review", timestamp: Date.now() / 1000, is_reversible: true },
+  { id: "fallback-2", decision: "archive", reason: "Dependabot alert archived, no action needed", timestamp: Date.now() / 1000 - 240, is_reversible: true },
+  { id: "fallback-3", decision: "normal", reason: "Sales inquiry drafted for pricing review", timestamp: Date.now() / 1000 - 900, is_reversible: true },
+];
+
+const decisionStyles = {
+  urgent: "HIGH",
+  archive: "LOW",
+  normal: "MED",
+  low: "LOW",
+};
+
+const badgeStyles = {
+  HIGH: "bg-error-container/30 text-error",
+  MED: "bg-secondary-container/30 text-secondary",
+  LOW: "bg-surface-container-highest text-on-surface-variant",
+};
+
+function formatTimestamp(timestamp) {
+  return new Date(timestamp * 1000).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
 export default function Dashboard() {
   const [metrics, setMetrics] = useState(null);
   const [queue, setQueue] = useState(null);
+  const [activity, setActivity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [itemToApprove, setItemToApprove] = useState(null);
+  const [draftItem, setDraftItem] = useState(null);
+  const [draftText, setDraftText] = useState("");
+  const [savedDrafts, setSavedDrafts] = useState({});
+
+  const openDraftEditor = (item) => {
+    setDraftItem(item);
+    setDraftText(savedDrafts[item.id] ?? `Reply to ${item.recipient} about ${item.title}.`);
+  };
+
+  const closeDraftEditor = () => {
+    setDraftItem(null);
+    setDraftText("");
+  };
 
   useEffect(() => {
     Promise.all([
       fetch("/api/metrics").then(r => r.json()),
-      fetch("/api/queue").then(r => r.json())
+      fetch("/api/queue").then(r => r.json()),
+      fetch("/api/activity").then(r => r.json()),
     ])
-    .then(([metricsData, queueData]) => {
+    .then(([metricsData, queueData, activityData]) => {
       setMetrics(metricsData);
       setQueue(queueData);
+      setActivity(activityData);
       setLoading(false);
     })
     .catch(err => {
@@ -29,6 +73,7 @@ export default function Dashboard() {
         { id: 1, type: "slack", recipient: "#support", title: "Urgent: API Down", score: 98, one_line_summary: "Customer reporting 500 errors on checkout", snippet: "..." },
         { id: 2, type: "email", recipient: "sales@example.com", title: "Enterprise Pricing", score: 85, one_line_summary: "Inquiry about 500+ seat license", snippet: "..." }
       ]);
+      setActivity(fallbackActivity);
       setLoading(false);
     });
   }, []);
@@ -36,13 +81,28 @@ export default function Dashboard() {
   const handleApprove = async () => {
     if (!itemToApprove) return;
     try {
-      await fetch(`/api/queue/${itemToApprove}/approve`, { method: 'POST' });
+      const response = await fetch(`/api/queue/${itemToApprove}/approve`, { method: 'POST' });
+      const data = await response.json();
+
       setQueue(q => q.filter(item => item.id !== itemToApprove));
       setMetrics(prev => ({ ...prev, handled_total: prev.handled_total + 1 }));
+      if (data.action) {
+        setActivity(prev => [data.action, ...(prev ?? [])]);
+      }
       setItemToApprove(null);
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handleSaveDraft = () => {
+    if (!draftItem) return;
+
+    setSavedDrafts((current) => ({
+      ...current,
+      [draftItem.id]: draftText,
+    }));
+    closeDraftEditor();
   };
 
   return (
@@ -132,9 +192,9 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Pending Approvals */}
-        <div className="lg:col-span-2 space-y-4">
+       <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
+         {/* Pending Approvals */}
+         <div className="space-y-4 xl:col-span-2">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-bold uppercase tracking-[0.15em] flex items-center gap-2">
               <ShieldCheck className="text-primary w-5 h-5" /> Pending Approvals
@@ -168,11 +228,16 @@ export default function Dashboard() {
                     </div>
                     <div className="text-[10px] font-mono text-outline">Score: {item.score}</div>
                   </div>
-                  <div className="bg-surface-container-lowest p-3 rounded-sm text-xs font-mono text-on-surface-variant mb-4 leading-relaxed line-clamp-2 font-bold">
-                    {item.one_line_summary || item.snippet || "No summary available"}
-                  </div>
-                  <div className="flex gap-2">
-                    <Dialog>
+                     <div className="bg-surface-container-lowest p-3 rounded-sm text-xs font-mono text-on-surface-variant mb-4 leading-relaxed line-clamp-2 font-bold">
+                       {item.one_line_summary || item.snippet || "No summary available"}
+                     </div>
+                     {savedDrafts[item.id] && (
+                       <div className="mb-4 rounded-sm border border-primary/20 bg-primary/8 px-3 py-2 text-[10px] font-mono text-primary">
+                         Draft updated and ready to review.
+                       </div>
+                     )}
+                     <div className="flex gap-2">
+                       <Dialog>
                       <DialogTrigger
                         render={<Button variant="outline" className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary border-none text-[10px] font-bold uppercase tracking-widest rounded-sm" />}
                         onClick={() => setItemToApprove(item.id)}
@@ -191,11 +256,11 @@ export default function Dashboard() {
                           <Button variant="default" className="bg-primary text-on-primary hover:bg-primary/90" onClick={handleApprove}>Confirm & Send</Button>
                         </DialogFooter>
                       </DialogContent>
-                    </Dialog>
-                    <Button variant="secondary" className="px-4 bg-surface-container-highest hover:bg-surface-variant text-on-surface border-none text-[10px] font-bold uppercase tracking-widest rounded-sm">
-                      Edit Draft
-                    </Button>
-                  </div>
+                       </Dialog>
+                      <Button onClick={() => openDraftEditor(item)} variant="secondary" className="px-4 bg-surface-container-highest hover:bg-surface-variant text-on-surface border-none text-[10px] font-bold uppercase tracking-widest rounded-sm">
+                        Edit Draft
+                      </Button>
+                     </div>
                 </CardContent>
               </Card>
             ))}
@@ -209,39 +274,65 @@ export default function Dashboard() {
               <History className="text-tertiary w-5 h-5" /> Recent Activity
             </h3>
           </div>
-          <Card className="bg-surface-container-low rounded-sm border-none overflow-hidden">
-            <CardContent className="p-0 divide-y divide-[#1c1c1c]">
-              <div className="p-4 hover:bg-surface-container-high transition-colors">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-mono text-tertiary">14:22:01</span>
-                  <Badge className="text-[10px] px-1.5 py-0 rounded-sm bg-error-container/30 text-error font-bold border-none">HIGH</Badge>
-                </div>
-                <p className="text-xs font-medium text-on-surface mb-1">Triage: Support Slack</p>
-                <p className="text-[10px] text-on-surface-variant line-clamp-1">Auto-assigned to Critical Engineering team.</p>
-              </div>
-              <div className="p-4 hover:bg-surface-container-high transition-colors">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-mono text-on-surface-variant">14:18:45</span>
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 rounded-sm bg-surface-container-highest text-on-surface-variant font-bold border-none">LOW</Badge>
-                </div>
-                <p className="text-xs font-medium text-on-surface mb-1">Triage: GitHub Notification</p>
-                <p className="text-[10px] text-on-surface-variant line-clamp-1">Dependabot alert archived - No action needed.</p>
-              </div>
-              <div className="p-4 hover:bg-surface-container-high transition-colors">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-mono text-on-surface-variant">14:05:12</span>
-                  <Badge className="text-[10px] px-1.5 py-0 rounded-sm bg-secondary-container/30 text-secondary font-bold border-none">MED</Badge>
-                </div>
-                <p className="text-xs font-medium text-on-surface mb-1">Triage: Sales Email</p>
-                <p className="text-[10px] text-on-surface-variant line-clamp-1">Drafted custom response for pricing inquiry.</p>
-              </div>
-            </CardContent>
-          </Card>
+           <Card className="bg-surface-container-low rounded-sm border-none overflow-hidden">
+             <CardContent className="p-0 divide-y divide-[#1c1c1c]">
+               {loading ? (
+                 <div className="space-y-3 p-4">
+                   <Skeleton className="h-16 w-full bg-surface-container-high rounded-sm" />
+                   <Skeleton className="h-16 w-full bg-surface-container-high rounded-sm" />
+                   <Skeleton className="h-16 w-full bg-surface-container-high rounded-sm" />
+                 </div>
+               ) : activity?.map((action) => {
+                 const severity = decisionStyles[action.decision] || "MED";
+
+                 return (
+                   <div key={action.id} className="p-4 hover:bg-surface-container-high transition-colors">
+                     <div className="flex items-center justify-between mb-1 gap-2">
+                       <span className="text-[10px] font-mono text-on-surface-variant">{formatTimestamp(action.timestamp)}</span>
+                       <Badge className={`text-[10px] px-1.5 py-0 rounded-sm font-bold border-none ${badgeStyles[severity]}`}>
+                         {severity}
+                       </Badge>
+                     </div>
+                     <p className="text-xs font-medium text-on-surface mb-1">Triage: {action.decision}</p>
+                     <p className="text-[10px] text-on-surface-variant line-clamp-2">{action.reason}</p>
+                   </div>
+                 );
+               })}
+             </CardContent>
+           </Card>
           <Button variant="ghost" className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:text-on-surface hover:bg-transparent transition-colors flex items-center justify-center gap-2">
             View Full Audit Log <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
       </div>
+
+      <Dialog open={Boolean(draftItem)} onOpenChange={(open) => !open && closeDraftEditor()}>
+        <DialogContent className="max-w-xl bg-surface border border-surface-container-high text-on-surface">
+          <DialogHeader>
+            <DialogTitle>Edit Draft</DialogTitle>
+            <DialogDescription className="text-on-surface-variant">
+              Review the outbound message before an operator approves it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-sm border border-surface-container-high bg-surface-container-low px-3 py-2 text-[10px] font-mono text-on-surface-variant">
+              {draftItem?.recipient} · {draftItem?.title}
+            </div>
+            <textarea
+              className="min-h-40 w-full rounded-sm border border-surface-container-high bg-surface-container-low p-3 text-sm text-on-surface outline-none transition focus:border-primary/40"
+              onChange={(event) => setDraftText(event.target.value)}
+              placeholder="Draft a response..."
+              value={draftText}
+            />
+          </div>
+          <DialogFooter className="bg-surface-container-low/60">
+            <Button variant="outline" onClick={closeDraftEditor}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveDraft}>Save Draft</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

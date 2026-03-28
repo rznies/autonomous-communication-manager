@@ -2,20 +2,43 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+This repository is still pre-1.0. Only the latest commit on `master` receives security fixes.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+| Version | Supported |
+| --- | --- |
+| `0.1.x` | Yes |
+| `< 0.1.0` | No |
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+Do not open a public GitHub issue for a suspected security issue.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+Use one of these private paths instead:
+
+1. GitHub private vulnerability reporting for this repository, if enabled.
+2. Direct private contact with the repository maintainer through the same channel used to grant repo access.
+
+Include:
+
+- a short description of the issue
+- the affected file, endpoint, or workflow
+- reproduction steps
+- impact and any known workaround
+
+### Response targets
+
+- Initial acknowledgement: within 3 business days
+- Triage decision: within 7 business days
+- Status updates: at least weekly until resolved or declined
+
+### Disclosure policy
+
+- Please keep the report private until a fix ships or the maintainer confirms the issue is not actionable.
+- If credentials may have leaked, rotate them immediately and note the exposure window in the report.
+
+## Security baselines
+
+- Production secrets must come from environment variables or a secret manager, never tracked files.
+- `.env` is local-only. Use `.env.example` for templates.
+- Mutating API routes should require `X-ACM-API-Key` in deployed environments.
+- `/health/live` and `/health/ready` must pass before a release is considered healthy.
