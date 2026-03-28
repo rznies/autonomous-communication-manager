@@ -14,8 +14,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch("http://127.0.0.1:8000/api/metrics").then(r => r.json()),
-      fetch("http://127.0.0.1:8000/api/queue").then(r => r.json())
+      fetch("/api/metrics").then(r => r.json()),
+      fetch("/api/queue").then(r => r.json())
     ])
     .then(([metricsData, queueData]) => {
       setMetrics(metricsData);
@@ -36,7 +36,7 @@ export default function Dashboard() {
   const handleApprove = async () => {
     if (!itemToApprove) return;
     try {
-      await fetch(`http://127.0.0.1:8000/api/queue/${itemToApprove}/approve`, { method: 'POST' });
+      await fetch(`/api/queue/${itemToApprove}/approve`, { method: 'POST' });
       setQueue(q => q.filter(item => item.id !== itemToApprove));
       setMetrics(prev => ({ ...prev, handled_total: prev.handled_total + 1 }));
       setItemToApprove(null);
@@ -173,14 +173,11 @@ export default function Dashboard() {
                   </div>
                   <div className="flex gap-2">
                     <Dialog>
-                      <DialogTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary border-none text-[10px] font-bold uppercase tracking-widest rounded-sm"
-                          onClick={() => setItemToApprove(item.id)}
-                        >
-                          Approve & Send
-                        </Button>
+                      <DialogTrigger
+                        render={<Button variant="outline" className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary border-none text-[10px] font-bold uppercase tracking-widest rounded-sm" />}
+                        onClick={() => setItemToApprove(item.id)}
+                      >
+                        Approve & Send
                       </DialogTrigger>
                       <DialogContent className="bg-surface border-surface-container-highest">
                         <DialogHeader>

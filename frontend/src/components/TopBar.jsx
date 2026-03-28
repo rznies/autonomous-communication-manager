@@ -24,10 +24,10 @@ export default function TopBar() {
         <div className="flex items-center space-x-4">
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high">
-                  <Bell className="h-4 w-4" />
-                </Button>
+              <TooltipTrigger
+                render={<Button variant="ghost" size="icon" className="h-8 w-8 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high" />}
+              >
+                <Bell className="h-4 w-4" />
               </TooltipTrigger>
               <TooltipContent>
                 <p>Notifications</p>
