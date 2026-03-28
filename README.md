@@ -110,6 +110,8 @@ OPENROUTER_API_KEY=your_openrouter_key
 GMAIL_CREDENTIALS_PATH=./credentials.json
 SLACK_BOT_TOKEN=xoxb-your-token
 SLACK_APP_TOKEN=xapp-your-token
+ACM_ENV=development
+ACM_CORS_ORIGINS=http://localhost:5173
 ```
 
 ### Run
@@ -118,12 +120,27 @@ SLACK_APP_TOKEN=xapp-your-token
 uv run python main.py
 ```
 
+### API Server
+
+```bash
+uv run uvicorn emailmanagement.api:app --reload
+```
+
+Health checks:
+
+```bash
+curl http://127.0.0.1:8000/health/live
+curl http://127.0.0.1:8000/health/ready
+```
+
 ---
 
 ## Project Documents
 
 - [`PRD.md`](./PRD.md) — Full Product Requirements Document
 - [`agentica-mini/README.md`](./agentica-mini/README.md) — Agent framework documentation
+- [`docs/OPERATIONS.md`](./docs/OPERATIONS.md) — Deploy, auth, health-check, and rollback guide
+- [`SECURITY.md`](./SECURITY.md) — Vulnerability reporting and security baseline
 
 ---
 

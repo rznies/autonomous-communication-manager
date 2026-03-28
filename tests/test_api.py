@@ -1,5 +1,7 @@
 """Tests for the FastAPI server (api.py)."""
 
+import importlib
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -37,6 +39,21 @@ def test_docs_endpoint_returns_html(client):
     response = client.get("/docs")
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
+
+
+def test_liveness_probe_returns_ok(client):
+    response = client.get("/health/live")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+
+def test_readiness_probe_returns_ready(client):
+    response = client.get("/health/ready")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ready"
+    assert "auth_mode" in data
+    assert "write_scope" in data
 
 
 # ---------------------------------------------------------------------------
@@ -124,6 +141,29 @@ def test_approve_removes_item_from_queue(client):
 def test_approve_nonexistent_returns_404(client):
     response = client.post("/api/queue/9999/approve")
     assert response.status_code == 404
+
+
+def test_approve_requires_api_key_when_configured(monkeypatch, tmp_path):
+    monkeypatch.setenv("ACM_MUTATION_API_KEY", "release-key")
+    monkeypatch.setenv("ACM_DB_PATH", str(tmp_path / "auth.db"))
+
+    import emailmanagement.api as api_module
+
+    reloaded = importlib.reload(api_module)
+    client = TestClient(reloaded.app)
+
+    unauthorized = client.post("/api/queue/1/approve")
+    assert unauthorized.status_code == 401
+
+    authorized = client.post(
+        "/api/queue/1/approve",
+        headers={"x-acm-api-key": "release-key"},
+    )
+    assert authorized.status_code == 200
+
+    monkeypatch.delenv("ACM_MUTATION_API_KEY", raising=False)
+    monkeypatch.delenv("ACM_DB_PATH", raising=False)
+    importlib.reload(api_module)
 
 
 # ---------------------------------------------------------------------------

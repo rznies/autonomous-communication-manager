@@ -1,6 +1,11 @@
 """FastAPI server for the Autonomous Communication Manager."""
 
-from fastapi import FastAPI, HTTPException
+import os
+import secrets
+import time
+import uuid
+
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from emailmanagement.metrics import MetricsTracker
@@ -10,22 +15,23 @@ from emailmanagement.persistence import SqliteStore
 from emailmanagement.action_executor import ActionExecutor, ExecutionRequest, ActionType
 from emailmanagement.draft_generator import DraftGenerator, DraftReply
 from emailmanagement.debounce import IncomingEvent
-
-import time
-import uuid
-
-import tempfile
-import os
+from emailmanagement.settings import AppSettings
 
 # ---------------------------------------------------------------------------
 # Module-level instances (initialized on import)
 # ---------------------------------------------------------------------------
-_db_path = os.path.join(tempfile.gettempdir(), "acm_api_state.db")
+settings = AppSettings.from_env()
+
+_db_dir = os.path.dirname(settings.db_path)
+if _db_dir:
+    os.makedirs(_db_dir, exist_ok=True)
+
+_db_path = settings.db_path
 store = SqliteStore(_db_path)
 metrics = MetricsTracker()
 feed = ActivityFeed()
 graph = ContactGraph(store=store)
-executor = ActionExecutor(store=store, has_write_scope=False)
+executor = ActionExecutor(store=store, has_write_scope=settings.has_write_scope)
 
 # DraftGenerator — wired when an agentica agent is available (see /api/draft endpoint)
 _draft_generator: DraftGenerator | None = None
@@ -109,15 +115,66 @@ queue_items: list[dict] = [
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-app = FastAPI(title="Autonomous Communication Manager")
+app = FastAPI(
+    title="Autonomous Communication Manager",
+    version=settings.release_version,
+    docs_url="/docs" if settings.docs_enabled else None,
+    redoc_url="/redoc" if settings.docs_enabled else None,
+    openapi_url="/openapi.json" if settings.docs_enabled else None,
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=list(settings.cors_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def require_mutation_auth(request: Request) -> None:
+    if not settings.requires_api_key:
+        return
+
+    provided = request.headers.get("x-acm-api-key")
+    expected = settings.mutation_api_key or ""
+    if not provided or not secrets.compare_digest(provided, expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid mutation API key",
+        )
+
+
+@app.get("/health/live")
+def liveness_probe():
+    return {
+        "status": "ok",
+        "service": "acm-api",
+        "environment": settings.environment,
+        "version": settings.release_version,
+    }
+
+
+@app.get("/health/ready")
+def readiness_probe():
+    try:
+        with store._get_connection() as conn:
+            conn.execute("SELECT 1")
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database unavailable: {exc}",
+        ) from exc
+
+    return {
+        "status": "ready",
+        "service": "acm-api",
+        "environment": settings.environment,
+        "auth_mode": settings.auth_mode,
+        "write_scope": settings.has_write_scope,
+        "build_sha": settings.build_sha,
+        "db_path": settings.db_path,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -143,8 +200,9 @@ def get_queue():
 
 
 @app.post("/api/queue/{item_id}/approve")
-def approve_queue_item(item_id: int):
+def approve_queue_item(item_id: int, request: Request):
     """Approve a queued item by ID."""
+    require_mutation_auth(request)
     global queue_items
     approved_item = next((item for item in queue_items if item["id"] == item_id), None)
     if approved_item is None:
