@@ -91,8 +91,8 @@ ContactGraph ←→ TriageEngine
 ### Setup
 
 ```bash
-# Clone the repo (agentica-mini is a submodule)
-git clone --recurse-submodules <repo-url>
+# Clone the repo
+git clone <repo-url>
 cd emailManagement
 
 # Install dependencies
