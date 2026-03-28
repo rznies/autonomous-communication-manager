@@ -131,7 +131,54 @@ class AutomatedSenderRule(TriageRule):
                 )
         return None
 
+
+class AgenticaTriageRule(TriageRule):
+    def __init__(self, agent, scope: Optional[Dict] = None):
+        self.agent = agent
+        self.scope = scope or {}
+
+    async def evaluate(self, event: IncomingEvent, contact: Optional[ContactNode] = None) -> Optional[TriageDecision]:
+        contact_info = ""
+        if contact:
+            contact_info = f"Contact relationship: {contact.relationship_class.name}, importance: {contact.importance_score}"
+
+        prompt = f"""
+        Classify the following email into a triage decision.
+        Email content: {event.content}
+        Sender: {event.contact_id}
+        {contact_info}
+
+        Return a TriageDecision with an appropriate decision_class from: ARCHIVE, LOW, NORMAL, URGENT.
+        Include a brief reason and a confidence score between 0 and 1.
+        """
+
+        try:
+            return await self.agent.call(TriageDecision, prompt)
+        except Exception:
+            return None
+
 from emailmanagement.persistence import SqliteStore
+
+
+def create_readonly_triage_scope(graph) -> dict:
+    """Build a dict of read-only wrapper functions over a ContactGraph.
+
+    These wrappers are injected into the Agentica agent's scope so the LLM
+    can query contact context without ever mutating the graph.
+    """
+
+    def get_contact_interaction_count(contact_id: str) -> int:
+        contact = graph._nodes.get(contact_id)
+        return contact.interaction_count if contact else 0
+
+    def get_contact_relationship_class(contact_id: str) -> str:
+        contact = graph._nodes.get(contact_id)
+        return contact.relationship_class.name if contact else "UNKNOWN"
+
+    return {
+        "get_contact_interaction_count": get_contact_interaction_count,
+        "get_contact_relationship_class": get_contact_relationship_class,
+    }
 
 class TriageEngine:
     def __init__(self, rules: Optional[List[TriageRule]] = None, store: Optional[SqliteStore] = None):

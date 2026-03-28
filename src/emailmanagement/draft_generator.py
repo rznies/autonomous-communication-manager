@@ -8,8 +8,8 @@ class DraftReply:
     confidence: float
 
 class DraftGenerator:
-    def __init__(self, llm_client):
-        self.llm_client = llm_client
+    def __init__(self, agent):
+        self.agent = agent
 
     async def generate_draft(self, event: IncomingEvent, contact: ContactNode, thread_history: str = "") -> DraftReply:
         prompt = f"""
@@ -18,12 +18,8 @@ class DraftGenerator:
         Original Message: {event.content}
         Thread History: {thread_history}
         """
-        
-        response = await self.llm_client.generate(prompt)
-        
-        # In a real system, we'd have the LLM return structured output with confidence.
-        # For this prototype, we'll assign a static high confidence.
-        return DraftReply(
-            content=response.strip(),
-            confidence=0.85
-        )
+
+        try:
+            return await self.agent.call(DraftReply, prompt)
+        except Exception:
+            return DraftReply(content="", confidence=0.0)
